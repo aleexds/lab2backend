@@ -3,6 +3,7 @@ import MenuPage from '../pages/MenuPage';
 import PedidosPage from '../pages/PedidosPage';
 import InventarioPage from '../pages/InventarioPage';
 import ProductosAdminPage from '../pages/ProductosAdminPage';
+import CierreCajaPage from '../pages/CierreCajaPage';
 
 export default function AppRouter() {
   return (
@@ -11,6 +12,7 @@ export default function AppRouter() {
       <Route path="/pedidos" element={<PedidosPage />} />
       <Route path="/inventario" element={<InventarioPage />} />
       <Route path="/productos-admin" element={<ProductosAdminPage />} />
+      <Route path="/cierre-caja" element={<CierreCajaPage />} />
     </Routes>
   );
 }
