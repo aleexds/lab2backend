@@ -31,6 +31,8 @@ app.use('/api/productos', productosRoutes);
 app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/insumos', insumosRoutes);
 app.get('/api/resumen', resumenController.getResumen);
+app.get('/api/resumen/datos-ia', resumenController.getDatosIA);
+
 
 app.listen(PORT, () => {
     console.log(`Servidor escuchando en http://localhost:${PORT}`);

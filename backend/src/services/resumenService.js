@@ -60,6 +60,42 @@ async function getResumenCierreCaja() {
   };
 }
 
+// Obtener insumos críticos y ventas de los últimos 7 días para el agente de IA
+async function getDatosParaIA() {
+  // Insumos por debajo o cerca del stock mínimo
+  const queryInsumos = `
+    SELECT id, nombre, stock, stock_minimo, unidad,
+           ROUND((stock_minimo - stock)::numeric, 2) AS deficit
+    FROM insumos
+    WHERE stock <= stock_minimo
+    ORDER BY deficit DESC
+  `;
+
+  // Consumo/ventas de productos en los últimos 7 días
+  const queryVentasSemana = `
+    SELECT pr.nombre,
+           SUM(pi.cantidad)::int AS unidades_vendidas_semana
+    FROM pedido_items pi
+    JOIN pedidos p ON pi.pedido_id = p.id
+    JOIN productos pr ON pi.producto_id = pr.id
+    WHERE p.estado = 'completado'
+      AND p.fecha >= NOW() - INTERVAL '7 days'
+    GROUP BY pr.id, pr.nombre
+    ORDER BY unidades_vendidas_semana DESC
+  `;
+
+  const [resInsumos, resVentas] = await Promise.all([
+    pool.query(queryInsumos),
+    pool.query(queryVentasSemana)
+  ]);
+
+  return {
+    insumos_bajo_minimo: resInsumos.rows,
+    ventas_ultima_semana: resVentas.rows
+  };
+}
+
 module.exports = {
-  getResumenCierreCaja
+  getResumenCierreCaja,
+  getDatosParaIA
 };
