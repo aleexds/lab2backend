@@ -5,6 +5,7 @@ require('dotenv').config();
 const db = require('./db');
 const productosRoutes = require('./routes/productosRoutes');
 const pedidosRoutes = require('./routes/pedidosRoutes');
+const insumosRoutes = require('./routes/insumosRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,7 +14,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Ruta de prueba
+// Rutas de prueba
 app.get('/api/test-db', async (req, res) => {
     try {
         const result = await db.query('SELECT NOW()');
@@ -27,6 +28,7 @@ app.get('/api/test-db', async (req, res) => {
 // Rutas de la API
 app.use('/api/productos', productosRoutes);
 app.use('/api/pedidos', pedidosRoutes);
+app.use('/api/insumos', insumosRoutes);
 
 app.listen(PORT, () => {
     console.log(`Servidor escuchando en http://localhost:${PORT}`);
