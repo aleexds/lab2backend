@@ -1,160 +1,149 @@
 const { pool } = require('../db');
 
-// Crear un nuevo pedido con transacción y descuento de stock
+// 1. Obtener pedido por ID con sus items detallados
+async function getPedidoById(id) {
+  const query = `
+    SELECT p.id, p.fecha, p.metodo_pago, p.subtotal, p.impuesto, p.total, p.estado,
+           COALESCE(
+             json_agg(
+               json_build_object(
+                 'producto_id', pi.producto_id,
+                 'producto', pr.nombre,
+                 'cantidad', pi.cantidad,
+                 'precio_unitario', pi.precio_unitario
+               )
+             ) FILTER (WHERE pi.id IS NOT NULL),
+             '[]'
+           ) AS items
+    FROM pedidos p
+    LEFT JOIN pedido_items pi ON p.id = pi.pedido_id
+    LEFT JOIN productos pr ON pi.producto_id = pr.id
+    WHERE p.id = $1
+    GROUP BY p.id, p.fecha, p.metodo_pago, p.subtotal, p.impuesto, p.total, p.estado
+  `;
+  const { rows } = await pool.query(query, [id]);
+  return rows[0] || null;
+}
+
+// 2. Crear pedido validando stock (409) y aplicando el 13% de IVA
 async function crearPedido(metodo_pago, items) {
-    const client = await pool.connect();
+  const client = await pool.connect();
 
-    try {
-        await client.query('BEGIN');
+  try {
+    await client.query('BEGIN');
 
-    // 1. Calcular el subtotal sumando los productos
+    // Mapeo acumulado de consumo de insumos para validar disponibilidad previa
+    const consumoInsumos = {};
     let subtotal = 0;
+
     for (const item of items) {
-        const prodRes = await client.query('SELECT precio FROM productos WHERE id = $1', [item.producto_id]);
-        if (prodRes.rows.length === 0) {
-            throw new Error(`Producto con ID ${item.producto_id} no encontrado`);
-        }
-      subtotal += Number(prodRes.rows[0].precio) * item.cantidad;
+      const prodRes = await client.query('SELECT nombre, precio FROM productos WHERE id = $1', [item.producto_id]);
+      if (prodRes.rows.length === 0) {
+        const error = new Error(`Producto con ID ${item.producto_id} no encontrado`);
+        error.status = 404;
+        throw error;
+      }
+
+      const prod = prodRes.rows[0];
+      subtotal += Number(prod.precio) * item.cantidad;
+
+      // Obtener receta del producto
+      const recetaRes = await client.query(
+        'SELECT insumo_id, cantidad FROM recetas WHERE producto_id = $1',
+        [item.producto_id]
+      );
+
+      for (const ing of recetaRes.rows) {
+        consumoInsumos[ing.insumo_id] = (consumoInsumos[ing.insumo_id] || 0) + (Number(ing.cantidad) * item.cantidad);
+      }
     }
 
-    const impuesto = 0;
+    // Regla de negocio: Validar si hay stock suficiente de cada insumo antes de procesar
+    for (const [insumoId, cantidadRequerida] of Object.entries(consumoInsumos)) {
+      const insumoRes = await client.query('SELECT nombre, stock, unidad FROM insumos WHERE id = $1', [insumoId]);
+      if (insumoRes.rows.length === 0) {
+        const error = new Error(`Insumo #${insumoId} no existe`);
+        error.status = 404;
+        throw error;
+      }
+
+      const insumo = insumoRes.rows[0];
+      if (Number(insumo.stock) < cantidadRequerida) {
+        const error = new Error(`Stock insuficiente de "${insumo.nombre}". Disponible: ${insumo.stock} ${insumo.unidad}, Requerido: ${cantidadRequerida} ${insumo.unidad}`);
+        error.status = 409; // Conflicto con regla de negocio
+        throw error;
+      }
+    }
+
+    // Regla de negocio: Calcular el 13% de impuesto de venta
+    const impuesto = Math.round(subtotal * 0.13);
     const total = subtotal + impuesto;
 
-    // 2. Insertar el pedido en la cabecera
+    // Insertar pedido cabecera
     const pedidoInsert = `
-        INSERT INTO pedidos (metodo_pago, subtotal, impuesto, total, estado)
-        VALUES ($1, $2, $3, $4, 'completado')
-        RETURNING id, fecha, metodo_pago, subtotal, impuesto, total, estado
+      INSERT INTO pedidos (metodo_pago, subtotal, impuesto, total, estado)
+      VALUES ($1, $2, $3, $4, 'completado')
+      RETURNING id, fecha, metodo_pago, subtotal, impuesto, total, estado
     `;
     const pedidoRes = await client.query(pedidoInsert, [metodo_pago || 'efectivo', subtotal, impuesto, total]);
     const pedido = pedidoRes.rows[0];
 
-    // 3. Insertar items y descontar insumos
+    // Insertar items y descontar insumos
     for (const item of items) {
-        const itemInsert = `
-            INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario)
-            VALUES ($1, $2, $3, (SELECT precio FROM productos WHERE id = $2))
-        `;
-        await client.query(itemInsert, [pedido.id, item.producto_id, item.cantidad]);
+      await client.query(
+        `INSERT INTO pedido_items (pedido_id, producto_id, cantidad, precio_unitario)
+         VALUES ($1, $2, $3, (SELECT precio FROM productos WHERE id = $2))`,
+        [pedido.id, item.producto_id, item.cantidad]
+      );
+    }
 
-        // Consultar insumos requeridos en la receta
-        const recetaRes = await client.query(
-            'SELECT insumo_id, cantidad FROM recetas WHERE producto_id = $1',
-            [item.producto_id]
-        );
-
-        // Descontar cada insumo del inventario usando la columna 'stock'
-        for (const ing of recetaRes.rows) {
-            const consumoTotal = Number(ing.cantidad) * item.cantidad;
-            const updateStock = `
-                UPDATE insumos
-                SET stock = stock - $1
-                WHERE id = $2
-            `;
-        await client.query(updateStock, [consumoTotal, ing.insumo_id]);
-        }
+    for (const [insumoId, cantidadRequerida] of Object.entries(consumoInsumos)) {
+      await client.query(
+        'UPDATE insumos SET stock = stock - $1 WHERE id = $2',
+        [cantidadRequerida, insumoId]
+      );
     }
 
     await client.query('COMMIT');
     return pedido;
-    } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-    } finally {
-        client.release();
-    }
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
-// Listar todos los pedidos con sus items asociados
+// 3. Listar todos los pedidos
 async function getPedidos() {
-    const query = `
+  const query = `
     SELECT p.id, p.fecha, p.metodo_pago, p.subtotal, p.impuesto, p.total, p.estado,
-        COALESCE(
-            json_agg(
-                json_build_object(
-                    'producto', pr.nombre,
-                    'cantidad', pi.cantidad,
-                    'precio_unitario', pi.precio_unitario
-                )
-            ) FILTER (WHERE pi.id IS NOT NULL),
-            '[]'
-        ) AS items
+           COALESCE(
+             json_agg(
+               json_build_object(
+                 'producto', pr.nombre,
+                 'cantidad', pi.cantidad,
+                 'precio_unitario', pi.precio_unitario
+               )
+             ) FILTER (WHERE pi.id IS NOT NULL),
+             '[]'
+           ) AS items
     FROM pedidos p
     LEFT JOIN pedido_items pi ON p.id = pi.pedido_id
     LEFT JOIN productos pr ON pi.producto_id = pr.id
     GROUP BY p.id, p.fecha, p.metodo_pago, p.subtotal, p.impuesto, p.total, p.estado
     ORDER BY p.id DESC
-    `;
-    const { rows } = await pool.query(query);
-    return rows;
+  `;
+  const { rows } = await pool.query(query);
+  return rows;
 }
 
-module.exports = {
-  crearPedido,
-  getPedidos,
-  eliminarPedido,
-  cambiarEstadoPedido
-};
-
-// Revertir insumos consumidos y eliminar el pedido
-async function eliminarPedido(id) {
-    const client = await pool.connect();
-
-    try {
-    await client.query('BEGIN');
-
-    // 1. Obtener los items del pedido a eliminar
-    const itemsRes = await client.query(
-        'SELECT producto_id, cantidad FROM pedido_items WHERE pedido_id = $1',
-        [id]
-    );
-
-    if (itemsRes.rows.length === 0) {
-      // Verificar si al menos existe el pedido
-        const existe = await client.query('SELECT id FROM pedidos WHERE id = $1', [id]);
-        if (existe.rows.length === 0) {
-            throw new Error('Pedido no encontrado');
-        }
-    }
-
-    // 2. Por cada producto, devolver los insumos de su receta al inventario
-    for (const item of itemsRes.rows) {
-        const recetaRes = await client.query(
-            'SELECT insumo_id, cantidad FROM recetas WHERE producto_id = $1',
-            [item.producto_id]
-        );
-
-        for (const ing of recetaRes.rows) {
-            const consumoADevolver = Number(ing.cantidad) * item.cantidad;
-            const revertStock = `
-                UPDATE insumos
-                SET stock = stock + $1
-                WHERE id = $2
-            `;
-        await client.query(revertStock, [consumoADevolver, ing.insumo_id]);
-        }
-    }
-
-    // 3. Eliminar los items asociados
-    await client.query('DELETE FROM pedido_items WHERE pedido_id = $1', [id]);
-
-    // 4. Eliminar el registro del pedido
-    const deleteRes = await client.query('DELETE FROM pedidos WHERE id = $1 RETURNING id', [id]);
-
-    await client.query('COMMIT');
-    return deleteRes.rows[0];
-    } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-    } finally {
-        client.release();
-    }
-}
-
-// Cambiar estado del pedido ajustando inventario según corresponda
+// 4. Cambiar estado validando límite de 15 minutos para anulación
 async function cambiarEstadoPedido(id, nuevoEstado) {
   if (!['completado', 'anulado'].includes(nuevoEstado)) {
-    throw new Error("Estado no permitido. Debe ser 'completado' o 'anulado'");
+    const error = new Error("Estado no permitido. Debe ser 'completado' o 'anulado'");
+    error.status = 400;
+    throw error;
   }
 
   const client = await pool.connect();
@@ -162,42 +151,48 @@ async function cambiarEstadoPedido(id, nuevoEstado) {
   try {
     await client.query('BEGIN');
 
-    // 1. Obtener estado previo del pedido
-    const pedidoActualRes = await client.query('SELECT id, estado FROM pedidos WHERE id = $1', [id]);
-    if (pedidoActualRes.rows.length === 0) {
-      throw new Error('Pedido no encontrado');
+    const pedidoRes = await client.query('SELECT id, fecha, estado FROM pedidos WHERE id = $1', [id]);
+    if (pedidoRes.rows.length === 0) {
+      const error = new Error('Pedido no encontrado');
+      error.status = 404;
+      throw error;
     }
 
-    const estadoAnterior = pedidoActualRes.rows[0].estado;
+    const pedido = pedidoRes.rows[0];
 
-    // 2. Si el estado cambia, ajustar stock en insumos
-    if (estadoAnterior !== nuevoEstado) {
-      const itemsRes = await client.query(
-        'SELECT producto_id, cantidad FROM pedido_items WHERE pedido_id = $1',
-        [id]
-      );
+    // Regla de negocio: Un pedido solo se puede anular en los primeros 15 minutos
+    if (nuevoEstado === 'anulado' && pedido.estado === 'completado') {
+      const fechaPedido = new Date(pedido.fecha).getTime();
+      const ahora = Date.now();
+      const minutosTranscurridos = (ahora - fechaPedido) / (1000 * 60);
 
+      if (minutosTranscurridos > 15) {
+        const error = new Error(`No se puede anular el pedido #${id}. Han transcurrido más de 15 minutos desde su emisión (${Math.floor(minutosTranscurridos)} min)`);
+        error.status = 409; // Conflicto con regla de negocio
+        throw error;
+      }
+
+      // Devolver insumos al stock
+      const itemsRes = await client.query('SELECT producto_id, cantidad FROM pedido_items WHERE pedido_id = $1', [id]);
       for (const item of itemsRes.rows) {
-        const recetaRes = await client.query(
-          'SELECT insumo_id, cantidad FROM recetas WHERE producto_id = $1',
-          [item.producto_id]
-        );
-
+        const recetaRes = await client.query('SELECT insumo_id, cantidad FROM recetas WHERE producto_id = $1', [item.producto_id]);
         for (const ing of recetaRes.rows) {
-          const impacto = Number(ing.cantidad) * item.cantidad;
-
-          if (nuevoEstado === 'anulado' && estadoAnterior === 'completado') {
-            // Anulado: se devuelven los insumos al stock
-            await client.query('UPDATE insumos SET stock = stock + $1 WHERE id = $2', [impacto, ing.insumo_id]);
-          } else if (nuevoEstado === 'completado' && estadoAnterior === 'anulado') {
-            // Revertido a completado: se vuelven a descontar
-            await client.query('UPDATE insumos SET stock = stock - $1 WHERE id = $2', [impacto, ing.insumo_id]);
-          }
+          const devolver = Number(ing.cantidad) * item.cantidad;
+          await client.query('UPDATE insumos SET stock = stock + $1 WHERE id = $2', [devolver, ing.insumo_id]);
+        }
+      }
+    } else if (nuevoEstado === 'completado' && pedido.estado === 'anulado') {
+      // Re-descontar insumos
+      const itemsRes = await client.query('SELECT producto_id, cantidad FROM pedido_items WHERE pedido_id = $1', [id]);
+      for (const item of itemsRes.rows) {
+        const recetaRes = await client.query('SELECT insumo_id, cantidad FROM recetas WHERE producto_id = $1', [item.producto_id]);
+        for (const ing of recetaRes.rows) {
+          const descontar = Number(ing.cantidad) * item.cantidad;
+          await client.query('UPDATE insumos SET stock = stock - $1 WHERE id = $2', [descontar, ing.insumo_id]);
         }
       }
     }
 
-    // 3. Actualizar la cabecera del pedido
     const updateRes = await client.query(
       'UPDATE pedidos SET estado = $1 WHERE id = $2 RETURNING id, fecha, metodo_pago, subtotal, impuesto, total, estado',
       [nuevoEstado, id]
@@ -212,3 +207,44 @@ async function cambiarEstadoPedido(id, nuevoEstado) {
     client.release();
   }
 }
+
+// 5. Eliminar pedido
+async function eliminarPedido(id) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const itemsRes = await client.query('SELECT producto_id, cantidad FROM pedido_items WHERE pedido_id = $1', [id]);
+    for (const item of itemsRes.rows) {
+      const recetaRes = await client.query('SELECT insumo_id, cantidad FROM recetas WHERE producto_id = $1', [item.producto_id]);
+      for (const ing of recetaRes.rows) {
+        const consumoADevolver = Number(ing.cantidad) * item.cantidad;
+        await client.query('UPDATE insumos SET stock = stock + $1 WHERE id = $2', [consumoADevolver, ing.insumo_id]);
+      }
+    }
+
+    await client.query('DELETE FROM pedido_items WHERE pedido_id = $1', [id]);
+    const deleteRes = await client.query('DELETE FROM pedidos WHERE id = $1 RETURNING id', [id]);
+    if (deleteRes.rows.length === 0) {
+      const error = new Error('Pedido no encontrado');
+      error.status = 404;
+      throw error;
+    }
+
+    await client.query('COMMIT');
+    return deleteRes.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = {
+  getPedidos,
+  getPedidoById,
+  crearPedido,
+  cambiarEstadoPedido,
+  eliminarPedido
+};
