@@ -47,3 +47,13 @@ export async function reabastecerInsumo(id, cantidad) {
     if (!data.ok) throw new Error(data.error || 'Error al reabastecer insumo');
     return data.data;
 }
+
+// Eliminar un pedido y revertir stock
+export async function eliminarPedido(id) {
+    const res = await fetch(`${API_URL}/pedidos/${id}`, {
+        method: 'DELETE'
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error al eliminar pedido');
+    return data;
+}
