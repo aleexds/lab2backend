@@ -90,9 +90,10 @@ async function getPedidos() {
 }
 
 module.exports = {
-    crearPedido,
-    getPedidos,
-    eliminarPedido
+  crearPedido,
+  getPedidos,
+  eliminarPedido,
+  cambiarEstadoPedido
 };
 
 // Revertir insumos consumidos y eliminar el pedido
@@ -148,4 +149,66 @@ async function eliminarPedido(id) {
     } finally {
         client.release();
     }
+}
+
+// Cambiar estado del pedido ajustando inventario según corresponda
+async function cambiarEstadoPedido(id, nuevoEstado) {
+  if (!['completado', 'anulado'].includes(nuevoEstado)) {
+    throw new Error("Estado no permitido. Debe ser 'completado' o 'anulado'");
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Obtener estado previo del pedido
+    const pedidoActualRes = await client.query('SELECT id, estado FROM pedidos WHERE id = $1', [id]);
+    if (pedidoActualRes.rows.length === 0) {
+      throw new Error('Pedido no encontrado');
+    }
+
+    const estadoAnterior = pedidoActualRes.rows[0].estado;
+
+    // 2. Si el estado cambia, ajustar stock en insumos
+    if (estadoAnterior !== nuevoEstado) {
+      const itemsRes = await client.query(
+        'SELECT producto_id, cantidad FROM pedido_items WHERE pedido_id = $1',
+        [id]
+      );
+
+      for (const item of itemsRes.rows) {
+        const recetaRes = await client.query(
+          'SELECT insumo_id, cantidad FROM recetas WHERE producto_id = $1',
+          [item.producto_id]
+        );
+
+        for (const ing of recetaRes.rows) {
+          const impacto = Number(ing.cantidad) * item.cantidad;
+
+          if (nuevoEstado === 'anulado' && estadoAnterior === 'completado') {
+            // Anulado: se devuelven los insumos al stock
+            await client.query('UPDATE insumos SET stock = stock + $1 WHERE id = $2', [impacto, ing.insumo_id]);
+          } else if (nuevoEstado === 'completado' && estadoAnterior === 'anulado') {
+            // Revertido a completado: se vuelven a descontar
+            await client.query('UPDATE insumos SET stock = stock - $1 WHERE id = $2', [impacto, ing.insumo_id]);
+          }
+        }
+      }
+    }
+
+    // 3. Actualizar la cabecera del pedido
+    const updateRes = await client.query(
+      'UPDATE pedidos SET estado = $1 WHERE id = $2 RETURNING id, fecha, metodo_pago, subtotal, impuesto, total, estado',
+      [nuevoEstado, id]
+    );
+
+    await client.query('COMMIT');
+    return updateRes.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }

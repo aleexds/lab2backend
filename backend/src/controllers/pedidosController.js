@@ -47,8 +47,26 @@ async function eliminarPedido(req, res) {
     }
 }
 
+async function cambiarEstadoPedido(req, res) {
+  try {
+    const { id } = req.params;
+    const { estado } = req.body;
+
+    if (!estado) {
+      return res.status(400).json({ ok: false, error: 'Debe especificar el nuevo estado' });
+    }
+
+    const pedidoActualizado = await pedidosService.cambiarEstadoPedido(id, estado);
+    res.json({ ok: true, data: pedidoActualizado });
+  } catch (error) {
+    console.error('Error al cambiar estado del pedido:', error);
+    res.status(500).json({ ok: false, error: error.message || 'Error al cambiar estado del pedido' });
+  }
+}
+
 module.exports = {
-    crearPedido,
-    getPedidos,
-    eliminarPedido
+  crearPedido,
+  getPedidos,
+  eliminarPedido,
+  cambiarEstadoPedido
 };
