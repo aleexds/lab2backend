@@ -27,3 +27,23 @@ export async function crearPedido(pedido) {
     if (!data.ok) throw new Error(data.error || 'Error al registrar pedido');
     return data.data;
 }
+
+// Consultar lista de insumos
+export async function getInsumos() {
+    const res = await fetch(`${API_URL}/insumos`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error al obtener insumos');
+    return data.data;
+}
+
+// Reabastecer stock de un insumo
+export async function reabastecerInsumo(id, cantidad) {
+    const res = await fetch(`${API_URL}/insumos/${id}/reabastecer`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cantidad })
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error al reabastecer insumo');
+    return data.data;
+}
