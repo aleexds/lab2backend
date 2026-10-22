@@ -2,36 +2,53 @@ const pedidosService = require('../services/pedidosService');
 
 // Controlador para crear un pedido
 async function crearPedido(req, res) {
-  try {
-    const { metodo_pago, items } = req.body;
+    try {
+        const { metodo_pago, items } = req.body;
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Debe especificar al menos un producto en items'
-      });
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                ok: false,
+                error: 'Debe especificar al menos un producto en items'
+            });
+        }
+
+        const pedido = await pedidosService.crearPedido(metodo_pago, items);
+        res.status(201).json({ ok: true, data: pedido });
+    } catch (error) {
+        console.error('Error al crear pedido:', error);
+        res.status(500).json({ ok: false, error: error.message || 'Error interno del servidor al crear pedido' });
     }
-
-    const pedido = await pedidosService.crearPedido(metodo_pago, items);
-    res.status(201).json({ ok: true, data: pedido });
-  } catch (error) {
-    console.error('Error al crear pedido:', error);
-    res.status(500).json({ ok: false, error: error.message || 'Error interno del servidor al crear pedido' });
-  }
 }
 
 // Controlador para listar pedidos
 async function getPedidos(req, res) {
-  try {
-    const pedidos = await pedidosService.getPedidos();
-    res.json({ ok: true, data: pedidos });
-  } catch (error) {
-    console.error('Error al obtener pedidos:', error);
-    res.status(500).json({ ok: false, error: error.message || 'Error interno del servidor al consultar pedidos' });
-  }
+    try {
+        const pedidos = await pedidosService.getPedidos();
+        res.json({ ok: true, data: pedidos });
+    } catch (error) {
+        console.error('Error al obtener pedidos:', error);
+        res.status(500).json({ ok: false, error: error.message || 'Error interno del servidor al consultar pedidos' });
+    }
+}
+
+async function eliminarPedido(req, res) {
+    try {
+        const { id } = req.params;
+        const eliminado = await pedidosService.eliminarPedido(id);
+
+        if (!eliminado) {
+            return res.status(404).json({ ok: false, error: 'Pedido no encontrado' });
+        }
+
+        res.json({ ok: true, message: `Pedido #${id} eliminado y stock revertido correctamente` });
+    } catch (error) {
+        console.error('Error al eliminar pedido:', error);
+        res.status(500).json({ ok: false, error: error.message || 'Error al eliminar el pedido' });
+    }
 }
 
 module.exports = {
-  crearPedido,
-  getPedidos
+    crearPedido,
+    getPedidos,
+    eliminarPedido
 };

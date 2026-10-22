@@ -91,5 +91,61 @@ async function getPedidos() {
 
 module.exports = {
     crearPedido,
-    getPedidos
+    getPedidos,
+    eliminarPedido
 };
+
+// Revertir insumos consumidos y eliminar el pedido
+async function eliminarPedido(id) {
+    const client = await pool.connect();
+
+    try {
+    await client.query('BEGIN');
+
+    // 1. Obtener los items del pedido a eliminar
+    const itemsRes = await client.query(
+        'SELECT producto_id, cantidad FROM pedido_items WHERE pedido_id = $1',
+        [id]
+    );
+
+    if (itemsRes.rows.length === 0) {
+      // Verificar si al menos existe el pedido
+        const existe = await client.query('SELECT id FROM pedidos WHERE id = $1', [id]);
+        if (existe.rows.length === 0) {
+            throw new Error('Pedido no encontrado');
+        }
+    }
+
+    // 2. Por cada producto, devolver los insumos de su receta al inventario
+    for (const item of itemsRes.rows) {
+        const recetaRes = await client.query(
+            'SELECT insumo_id, cantidad FROM recetas WHERE producto_id = $1',
+            [item.producto_id]
+        );
+
+        for (const ing of recetaRes.rows) {
+            const consumoADevolver = Number(ing.cantidad) * item.cantidad;
+            const revertStock = `
+                UPDATE insumos
+                SET stock = stock + $1
+                WHERE id = $2
+            `;
+        await client.query(revertStock, [consumoADevolver, ing.insumo_id]);
+        }
+    }
+
+    // 3. Eliminar los items asociados
+    await client.query('DELETE FROM pedido_items WHERE pedido_id = $1', [id]);
+
+    // 4. Eliminar el registro del pedido
+    const deleteRes = await client.query('DELETE FROM pedidos WHERE id = $1 RETURNING id', [id]);
+
+    await client.query('COMMIT');
+    return deleteRes.rows[0];
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+}
