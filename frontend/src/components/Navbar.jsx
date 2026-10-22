@@ -16,6 +16,7 @@ export default function Navbar() {
       <Link to="/pedidos" style={{ color: '#fff', textDecoration: 'none', fontWeight: 500 }}>Historial Pedidos</Link>
       <Link to="/inventario" style={{ color: '#fff', textDecoration: 'none', fontWeight: 500 }}>Inventario</Link>
       <Link to="/productos-admin" style={{ color: '#fff', textDecoration: 'none', fontWeight: 500 }}>Catálogo</Link>
+      <Link to="/cierre-caja" style={{ color: '#fff', textDecoration: 'none', fontWeight: 500 }}>Cierre de Caja</Link>
     </nav>
   );
 }

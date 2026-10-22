@@ -127,3 +127,10 @@ export async function cambiarEstadoPedido(id, estado) {
   if (!data.ok) throw new Error(data.error || 'Error al cambiar estado');
   return data.data;
 }
+
+export async function getResumen() {
+  const res = await fetch(`${API_URL}/resumen`);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al obtener resumen');
+  return data.data;
+}
