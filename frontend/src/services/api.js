@@ -1,59 +1,87 @@
 const API_URL = 'http://localhost:5000/api';
 
-// Obtener catálogo de productos
+// --- PRODUCTOS ---
 export async function getProductos() {
-    const res = await fetch(`${API_URL}/productos`);
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'Error al obtener productos');
-    return data.data;
+  const res = await fetch(`${API_URL}/productos`);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al obtener productos');
+  return data.data;
 }
 
-// Obtener historial de pedidos
+export async function crearProducto(producto) {
+  const res = await fetch(`${API_URL}/productos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(producto)
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al crear producto');
+  return data.data;
+}
+
+export async function actualizarProducto(id, producto) {
+  const res = await fetch(`${API_URL}/productos/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(producto)
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al actualizar producto');
+  return data.data;
+}
+
+export async function eliminarProducto(id) {
+  const res = await fetch(`${API_URL}/productos/${id}`, {
+    method: 'DELETE'
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al eliminar producto');
+  return data;
+}
+
+// --- PEDIDOS ---
 export async function getPedidos() {
-    const res = await fetch(`${API_URL}/pedidos`);
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'Error al obtener pedidos');
-    return data.data;
+  const res = await fetch(`${API_URL}/pedidos`);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al obtener pedidos');
+  return data.data;
 }
 
-// Crear un nuevo pedido
 export async function crearPedido(pedido) {
-    const res = await fetch(`${API_URL}/pedidos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pedido)
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'Error al registrar pedido');
-    return data.data;
+  const res = await fetch(`${API_URL}/pedidos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(pedido)
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al registrar pedido');
+  return data.data;
 }
 
-// Consultar lista de insumos
-export async function getInsumos() {
-    const res = await fetch(`${API_URL}/insumos`);
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'Error al obtener insumos');
-    return data.data;
-}
-
-// Reabastecer stock de un insumo
-export async function reabastecerInsumo(id, cantidad) {
-    const res = await fetch(`${API_URL}/insumos/${id}/reabastecer`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cantidad })
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'Error al reabastecer insumo');
-    return data.data;
-}
-
-// Eliminar un pedido y revertir stock
 export async function eliminarPedido(id) {
-    const res = await fetch(`${API_URL}/pedidos/${id}`, {
-        method: 'DELETE'
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'Error al eliminar pedido');
-    return data;
+  const res = await fetch(`${API_URL}/pedidos/${id}`, {
+    method: 'DELETE'
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al eliminar pedido');
+  return data;
+}
+
+// --- INSUMOS ---
+export async function getInsumos() {
+  const res = await fetch(`${API_URL}/insumos`);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al obtener insumos');
+  return data.data;
+}
+
+export async function reabastecerInsumo(id, cantidad) {
+  const res = await fetch(`${API_URL}/insumos/${id}/reabastecer`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cantidad })
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al reabastecer insumo');
+  return data.data;
 }
