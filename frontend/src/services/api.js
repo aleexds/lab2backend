@@ -85,3 +85,34 @@ export async function reabastecerInsumo(id, cantidad) {
   if (!data.ok) throw new Error(data.error || 'Error al reabastecer insumo');
   return data.data;
 }
+
+export async function crearInsumo(insumo) {
+  const res = await fetch(`${API_URL}/insumos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(insumo)
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al crear insumo');
+  return data.data;
+}
+
+export async function actualizarInsumo(id, insumo) {
+  const res = await fetch(`${API_URL}/insumos/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(insumo)
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al actualizar insumo');
+  return data.data;
+}
+
+export async function eliminarInsumo(id) {
+  const res = await fetch(`${API_URL}/insumos/${id}`, {
+    method: 'DELETE'
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al eliminar insumo');
+  return data;
+}
