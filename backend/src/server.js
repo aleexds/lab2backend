@@ -6,6 +6,7 @@ const db = require('./db');
 const productosRoutes = require('./routes/productosRoutes');
 const pedidosRoutes = require('./routes/pedidosRoutes');
 const insumosRoutes = require('./routes/insumosRoutes');
+const resumenController = require('./controllers/resumenController');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +30,7 @@ app.get('/api/test-db', async (req, res) => {
 app.use('/api/productos', productosRoutes);
 app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/insumos', insumosRoutes);
+app.get('/api/resumen', resumenController.getResumen);
 
 app.listen(PORT, () => {
     console.log(`Servidor escuchando en http://localhost:${PORT}`);
