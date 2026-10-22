@@ -3,6 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const db = require('./db');
+const productosRoutes = require('./routes/productosRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -11,17 +12,20 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Ruta de prueba para verificar la conexión a Supabase
+// Ruta de prueba
 app.get('/api/test-db', async (req, res) => {
-  try {
-    const result = await db.query('SELECT NOW()');
-    res.json({ ok: true, timestamp: result.rows[0].now, message: 'Conectado a Supabase exitosamente' });
-  } catch (error) {
-    console.error('Error al conectar a la BD:', error);
-    res.status(500).json({ ok: false, error: error.message });
-  }
+    try {
+        const result = await db.query('SELECT NOW()');
+        res.json({ ok: true, timestamp: result.rows[0].now, message: 'Conectado a Supabase exitosamente' });
+    } catch (error) {
+        console.error('Error al conectar a la BD:', error);
+        res.status(500).json({ ok: false, error: error.message });
+    }
 });
 
+// Rutas de la API
+app.use('/api/productos', productosRoutes);
+
 app.listen(PORT, () => {
-  console.log(`Servidor escuchando en http://localhost:${PORT}`);
+    console.log(`Servidor escuchando en http://localhost:${PORT}`);
 });
