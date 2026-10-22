@@ -116,3 +116,14 @@ export async function eliminarInsumo(id) {
   if (!data.ok) throw new Error(data.error || 'Error al eliminar insumo');
   return data;
 }
+
+export async function cambiarEstadoPedido(id, estado) {
+  const res = await fetch(`${API_URL}/pedidos/${id}/estado`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ estado })
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al cambiar estado');
+  return data.data;
+}
