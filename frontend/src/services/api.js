@@ -134,3 +134,26 @@ export async function getResumen() {
   if (!data.ok) throw new Error(data.error || 'Error al obtener resumen');
   return data.data;
 }
+
+// URL de tu webhook de n8n (ajusta el puerto si es necesario)
+const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook-test/sugerencia-compras';
+
+// 1. Obtener datos locales preparados para la IA
+export async function getDatosParaIA() {
+  const res = await fetch(`${API_URL}/resumen/datos-ia`);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al obtener datos');
+  return data.data;
+}
+
+// 2. Invocar el agente de IA en n8n con los datos
+export async function solicitarSugerenciaCompras(payload) {
+  const res = await fetch(N8N_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al procesar la sugerencia con la IA');
+  return data.data;
+}
