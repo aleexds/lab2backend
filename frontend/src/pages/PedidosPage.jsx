@@ -7,7 +7,7 @@ export default function PedidosPage() {
   const [loading, setLoading] = useState(true);
   const [mensaje, setMensaje] = useState(null);
 
-  // Estados de filtrado
+  // Filtros
   const [filtroPago, setFiltroPago] = useState('todos');
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [busquedaId, setBusquedaId] = useState('');
@@ -40,19 +40,18 @@ export default function PedidosPage() {
   }
 
   async function handleEliminar(id) {
-    const confirmar = window.confirm(`¿Seguro que deseas eliminar el pedido #${id}? Se devolverán los insumos al inventario.`);
+    const confirmar = window.confirm(`¿Seguro que deseas eliminar definitivamente el pedido #${id}? Se devolverán los insumos.`);
     if (!confirmar) return;
 
     try {
       await eliminarPedido(id);
       setPedidos((prev) => prev.filter((p) => p.id !== id));
-      setMensaje({ tipo: 'success', texto: `Pedido #${id} eliminado definitivamente.` });
+      setMensaje({ tipo: 'success', texto: `Pedido #${id} eliminado correctamente.` });
     } catch (err) {
       setMensaje({ tipo: 'error', texto: err.message });
     }
   }
 
-  // Filtrado reactivo de pedidos
   const pedidosFiltrados = pedidos.filter((p) => {
     const coincidePago = filtroPago === 'todos' || p.metodo_pago?.toLowerCase() === filtroPago.toLowerCase();
     const coincideEstado = filtroEstado === 'todos' || p.estado?.toLowerCase() === filtroEstado.toLowerCase();
@@ -63,82 +62,163 @@ export default function PedidosPage() {
   const pedidosCompletados = pedidosFiltrados.filter((p) => p.estado === 'completado');
   const totalVentas = pedidosCompletados.reduce((acc, p) => acc + Number(p.total), 0);
 
-  if (loading) return <p style={{ padding: '24px' }}>Cargando panel de pedidos...</p>;
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 24px', color: '#7a6a60' }}>
+        <p style={{ fontSize: '1.1rem' }}>Cargando panel de pedidos...</p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2 style={{ margin: 0, color: '#2c1810' }}>Dashboard de Pedidos</h2>
-      </div>
+    <div style={{ minHeight: 'calc(100vh - 70px)', background: '#f8f6f2', padding: '36px 24px' }}>
+      <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
+        
+        {/* Cabecera */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <div>
+            <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#2c1810', margin: '0 0 4px 0', letterSpacing: '-0.02em' }}>
+              Dashboard de Pedidos
+            </h2>
+            <p style={{ margin: 0, color: '#7a6a60', fontSize: '0.92rem' }}>
+              Historial de órdenes, control de estados y auditoría de ventas
+            </p>
+          </div>
+        </div>
 
-      {mensaje && (
+        {mensaje && (
+          <div style={{
+            padding: '14px 18px',
+            marginBottom: '24px',
+            borderRadius: '8px',
+            backgroundColor: mensaje.tipo === 'success' ? '#e6f4ea' : '#fce8e6',
+            color: mensaje.tipo === 'success' ? '#137333' : '#c5221f',
+            border: `1px solid ${mensaje.tipo === 'success' ? '#b7e1cd' : '#fad2cf'}`,
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <span>{mensaje.tipo === 'success' ? '✓' : '⚠️'}</span>
+            <span>{mensaje.texto}</span>
+          </div>
+        )}
+
+        {/* KPIs Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+          <div style={{
+            background: '#ffffff',
+            padding: '22px 24px',
+            borderRadius: '12px',
+            border: '1px solid #e8e2dc',
+            borderLeft: '5px solid #b8621b',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+          }}>
+            <p style={{ margin: '0 0 6px 0', color: '#7a6a60', fontSize: '0.82rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Pedidos Visibles
+            </p>
+            <h3 style={{ margin: 0, fontSize: '2rem', fontWeight: 800, color: '#2c1810' }}>
+              {pedidosFiltrados.length}
+            </h3>
+          </div>
+
+          <div style={{
+            background: '#ffffff',
+            padding: '22px 24px',
+            borderRadius: '12px',
+            border: '1px solid #e8e2dc',
+            borderLeft: '5px solid #137333',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+          }}>
+            <p style={{ margin: '0 0 6px 0', color: '#7a6a60', fontSize: '0.82rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Ventas Efectivas (Completados)
+            </p>
+            <h3 style={{ margin: 0, fontSize: '2rem', fontWeight: 800, color: '#137333' }}>
+              ₡{totalVentas.toLocaleString()}
+            </h3>
+          </div>
+        </div>
+
+        {/* Filtros y Buscador */}
         <div style={{
-          padding: '12px 16px',
+          background: '#ffffff',
+          padding: '16px 20px',
+          borderRadius: '12px',
+          border: '1px solid #e8e2dc',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
           marginBottom: '20px',
-          borderRadius: '6px',
-          backgroundColor: mensaje.tipo === 'success' ? '#d4edda' : '#f8d7da',
-          color: mensaje.tipo === 'success' ? '#155724' : '#721c24',
-          fontWeight: 500
+          display: 'flex',
+          gap: '16px',
+          flexWrap: 'wrap',
+          alignItems: 'center'
         }}>
-          {mensaje.texto}
-        </div>
-      )}
+          <div style={{ flex: 1, minWidth: '220px' }}>
+            <input
+              type="number"
+              placeholder="🔍 Buscar por ID de orden..."
+              value={busquedaId}
+              onChange={(e) => setBusquedaId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                border: '1px solid #d8cfc6',
+                outline: 'none',
+                fontSize: '0.92rem',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
 
-      {/* Métricas basadas en pedidos completados del filtro */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-        <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #e28743', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <p style={{ margin: '0 0 8px 0', color: '#666', fontSize: '0.9rem' }}>Pedidos Visibles</p>
-          <h3 style={{ margin: 0, fontSize: '1.6rem', color: '#2c1810' }}>{pedidosFiltrados.length}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#554841' }}>Estado:</label>
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              style={{
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: '1px solid #d8cfc6',
+                background: '#fff',
+                fontSize: '0.9rem',
+                outline: 'none'
+              }}
+            >
+              <option value="todos">Todos</option>
+              <option value="completado">Completados</option>
+              <option value="anulado">Anulados</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#554841' }}>Método de pago:</label>
+            <select
+              value={filtroPago}
+              onChange={(e) => setFiltroPago(e.target.value)}
+              style={{
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: '1px solid #d8cfc6',
+                background: '#fff',
+                fontSize: '0.9rem',
+                outline: 'none'
+              }}
+            >
+              <option value="todos">Todos</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="sinpe">SINPE Móvil</option>
+            </select>
+          </div>
         </div>
-        <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #198754', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <p style={{ margin: '0 0 8px 0', color: '#666', fontSize: '0.9rem' }}>Ventas Efectivas (Completados)</p>
-          <h3 style={{ margin: 0, fontSize: '1.6rem', color: '#198754' }}>₡{totalVentas.toLocaleString()}</h3>
-        </div>
+
+        {/* Tabla */}
+        <TablaPedidos
+          pedidos={pedidosFiltrados}
+          onEliminar={handleEliminar}
+          onCambiarEstado={handleCambiarEstado}
+        />
       </div>
-
-      {/* Controles de Búsqueda y Filtrado */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center', background: '#fff', padding: '14px', borderRadius: '8px' }}>
-        <div style={{ flex: 1, minWidth: '180px' }}>
-          <input
-            type="number"
-            placeholder="🔎 Buscar por ID de orden..."
-            value={busquedaId}
-            onChange={(e) => setBusquedaId(e.target.value)}
-            style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
-          />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#444' }}>Estado:</label>
-          <select
-            value={filtroEstado}
-            onChange={(e) => setFiltroEstado(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc' }}
-          >
-            <option value="todos">Todos</option>
-            <option value="completado">Completados</option>
-            <option value="anulado">Anulados</option>
-          </select>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#444' }}>Método de pago:</label>
-          <select
-            value={filtroPago}
-            onChange={(e) => setFiltroPago(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc' }}
-          >
-            <option value="todos">Todos</option>
-            <option value="efectivo">Efectivo</option>
-            <option value="tarjeta">Tarjeta</option>
-            <option value="sinpe">SINPE Móvil</option>
-          </select>
-        </div>
-      </div>
-
-      <TablaPedidos
-        pedidos={pedidosFiltrados}
-        onEliminar={handleEliminar}
-        onCambiarEstado={handleCambiarEstado}
-      />
     </div>
   );
 }
