@@ -1,22 +1,56 @@
-import { Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 
 export default function Navbar() {
+  const navStyle = ({ isActive }) => ({
+    color: isActive ? '#fff' : 'rgba(255, 255, 255, 0.72)',
+    backgroundColor: isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+    padding: '8px 14px',
+    borderRadius: '8px',
+    textDecoration: 'none',
+    fontWeight: 600,
+    fontSize: '0.9rem',
+    transition: 'all 0.2s ease'
+  });
+
   return (
-    <nav style={{
-      display: 'flex',
-      gap: '24px',
-      padding: '16px 24px',
-      background: '#2c1810',
-      color: '#fff',
-      alignItems: 'center',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    <header style={{
+      background: 'linear-gradient(135deg, #2e1a13 0%, #1d0f0a 100%)',
+      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+      position: 'sticky',
+      top: 0,
+      zIndex: 100,
+      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
     }}>
-      <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#e28743' }}>☕ Cafetería Sweet</h2>
-      <Link to="/" style={{ color: '#fff', textDecoration: 'none', fontWeight: 500 }}>Menú / Ordenar</Link>
-      <Link to="/pedidos" style={{ color: '#fff', textDecoration: 'none', fontWeight: 500 }}>Historial Pedidos</Link>
-      <Link to="/inventario" style={{ color: '#fff', textDecoration: 'none', fontWeight: 500 }}>Inventario</Link>
-      <Link to="/productos-admin" style={{ color: '#fff', textDecoration: 'none', fontWeight: 500 }}>Catálogo</Link>
-      <Link to="/cierre-caja" style={{ color: '#fff', textDecoration: 'none', fontWeight: 500 }}>Cierre de Caja</Link>
-    </nav>
+      <div style={{
+        maxWidth: '1280px',
+        margin: '0 auto',
+        padding: '14px 24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}>
+        {/* Brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '1.6rem' }}>☕</span>
+          <div>
+            <h1 style={{ fontSize: '1.15rem', color: '#fff', fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>
+              Cafetería Sweet
+            </h1>
+            <span style={{ fontSize: '0.72rem', color: '#c87d46', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+              POS & Inventory System
+            </span>
+          </div>
+        </div>
+
+        {/* Links */}
+        <nav style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <NavLink to="/" style={navStyle}>Menú</NavLink>
+          <NavLink to="/pedidos" style={navStyle}>Historial</NavLink>
+          <NavLink to="/inventario" style={navStyle}>Inventario</NavLink>
+          <NavLink to="/productos-admin" style={navStyle}>Catálogo</NavLink>
+          <NavLink to="/cierre-caja" style={navStyle}>Cierre de Caja</NavLink>
+        </nav>
+      </div>
+    </header>
   );
 }
