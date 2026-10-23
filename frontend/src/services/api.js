@@ -157,3 +157,10 @@ export async function solicitarSugerenciaCompras(payload) {
   if (!data.ok) throw new Error(data.error || 'Error al procesar la sugerencia con la IA');
   return data.data;
 }
+
+export async function getPedidoById(id) {
+  const res = await fetch(`${API_URL}/pedidos/${id}`);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error al obtener el detalle del pedido');
+  return data.data;
+}

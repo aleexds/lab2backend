@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function TablaPedidos({ pedidos, onEliminar, onCambiarEstado }) {
   if (pedidos.length === 0) {
     return <p style={{ color: '#666' }}>No hay pedidos registrados con los criterios seleccionados.</p>;
@@ -21,7 +23,11 @@ export default function TablaPedidos({ pedidos, onEliminar, onCambiarEstado }) {
           const esCompletado = p.estado === 'completado';
           return (
             <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: '12px', fontWeight: 'bold' }}>#{p.id}</td>
+              <td style={{ padding: '12px', fontWeight: 'bold' }}>
+                <Link to={`/pedidos/${p.id}`} style={{ color: '#2c1810', textDecoration: 'underline' }}>
+                  #{p.id}
+                </Link>
+              </td>
               <td style={{ padding: '12px', color: '#555' }}>{new Date(p.fecha).toLocaleString()}</td>
               <td style={{ padding: '12px' }}>
                 <span style={{ textTransform: 'uppercase', fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>
@@ -56,7 +62,21 @@ export default function TablaPedidos({ pedidos, onEliminar, onCambiarEstado }) {
                 )}
               </td>
               <td style={{ padding: '12px', textAlign: 'center' }}>
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                  <Link
+                    to={`/pedidos/${p.id}`}
+                    style={{
+                      backgroundColor: '#0d6efd',
+                      color: '#fff',
+                      textDecoration: 'none',
+                      padding: '6px 10px',
+                      borderRadius: '4px',
+                      fontSize: '0.8rem',
+                      fontWeight: 500
+                    }}
+                  >
+                    Ver
+                  </Link>
                   <button
                     onClick={() => onCambiarEstado(p.id, esCompletado ? 'anulado' : 'completado')}
                     style={{
